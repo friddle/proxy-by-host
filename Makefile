@@ -5,7 +5,8 @@ all: build
 
 # 编译
 build:
-	go build -o reserver-proxy main.go
+	mkdir -p output
+	go build -o output/reserver-proxy main.go
 
 # 运行
 run:
@@ -13,7 +14,7 @@ run:
 
 # 清理
 clean:
-	rm -f reserver-proxy reserver-proxy-*
+	rm -rf output
 
 # 构建 Docker 镜像
 docker-build:
@@ -33,15 +34,16 @@ logs:
 
 # 跨平台编译
 build-all:
-	GOOS=linux GOARCH=amd64 go build -o reserver-proxy-linux-amd64 main.go
-	GOOS=linux GOARCH=arm64 go build -o reserver-proxy-linux-arm64 main.go
-	GOOS=darwin GOARCH=amd64 go build -o reserver-proxy-darwin-amd64 main.go
-	GOOS=darwin GOARCH=arm64 go build -o reserver-proxy-darwin-arm64 main.go
-	GOOS=windows GOARCH=amd64 go build -o reserver-proxy-windows-amd64.exe main.go
+	mkdir -p output
+	GOOS=linux GOARCH=amd64 go build -o output/reserver-proxy-linux-amd64 main.go
+	GOOS=linux GOARCH=arm64 go build -o output/reserver-proxy-linux-arm64 main.go
+	GOOS=darwin GOARCH=amd64 go build -o output/reserver-proxy-darwin-amd64 main.go
+	GOOS=darwin GOARCH=arm64 go build -o output/reserver-proxy-darwin-arm64 main.go
+	GOOS=windows GOARCH=amd64 go build -o output/reserver-proxy-windows-amd64.exe main.go
 
 # 测试
 test:
-	./reserver-proxy --ssl=generate --http-port=8080 --https-port=8443
+	./output/reserver-proxy --ssl=generate --http-port=8080 --https-port=8443
 
 
 

@@ -1,6 +1,5 @@
 # Binaries
-reserver-proxy
-simple-proxy
+output/
 *.exe
 *.test
 *.out
