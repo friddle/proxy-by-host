@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  simple-proxy:
+    image: registrylan.service.code27.cn/third/simple_proxy:latest
+    container_name: simple-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      # 上游服务器配置
+      UPSTREAM_HOST: "47.90.201.196:443"
+      LISTEN_PORT: "80"
+      
+      # 如果需要通过代理访问上游服务器（中国环境）
+      # 宿主机代理地址使用 host.docker.internal
+      HTTP_PROXY: "http://host.docker.internal:7897"
+      HTTPS_PROXY: "http://host.docker.internal:7897"
+      
+      # 或者使用 SOCKS5 代理
+      # SOCKS_PROXY: "socks5://host.docker.internal:1080"
+    
+    # 让容器能访问宿主机服务（如代理）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# ========================================
+# 使用示例
+# ========================================
+#
+# 1. 基本使用（不需要代理）:
+#    environment:
+#      UPSTREAM_HOST: "47.90.201.196:443"
+#      LISTEN_PORT: "80"
+#
+# 2. 通过宿主机代理访问:
+#    environment:
+#      UPSTREAM_HOST: "47.90.201.196:443"
+#      HTTP_PROXY: "http://host.docker.internal:7897"
+#      HTTPS_PROXY: "http://host.docker.internal:7897"
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway"
+#
+# 3. 多个代理实例:
+#    复制整个 service 块，修改 container_name 和端口
+#
+# 4. 启动命令:
+#    docker-compose up -d
+#
+# 5. 查看日志:
+#    docker-compose logs -f simple-proxy
+#
+# 6. 停止服务:
+#    docker-compose down
+#
+
