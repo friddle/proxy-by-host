@@ -70,6 +70,7 @@ sudo ./http-proxy-by-host \
 | `--ssl-crt` | - | SSL 证书路径 (当 `--ssl=on` 时必须). |
 | `--ssl-key` | - | SSL 密钥路径 (当 `--ssl=on` 时必须). |
 | `--proxy` | - | 上游代理地址 (例如 `http://127.0.0.1:7897`). |
+| `--fixed-upstream` | - | 强制将所有流量转发到此上游地址 (例如 `https://192.168.1.100`), 但保持原始 `Host` 头不变。用于指定 IP 访问或测试。 |
 | `--http-port`| `80` | HTTP 监听端口. |
 | `--https-port`| `443` | HTTPS 监听端口. |
 

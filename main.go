@@ -25,12 +25,13 @@ import (
 
 // Flags
 var (
-	sslMode      string
-	sslCrt       string
-	sslKey       string
-	proxyAddress string
-	httpPort     int
-	httpsPort    int
+	sslMode       string
+	sslCrt        string
+	sslKey        string
+	proxyAddress  string
+	fixedUpstream string
+	httpPort      int
+	httpsPort     int
 )
 
 type ProxyHandler struct {
@@ -44,6 +45,7 @@ func main() {
 	flag.StringVar(&sslCrt, "ssl-crt", "", "Path to SSL certificate (required if ssl=on)")
 	flag.StringVar(&sslKey, "ssl-key", "", "Path to SSL key (required if ssl=on)")
 	flag.StringVar(&proxyAddress, "proxy", "", "Upstream proxy URL (e.g., https://localhost:7897)")
+	flag.StringVar(&fixedUpstream, "fixed-upstream", "", "Fixed upstream address (e.g., https://192.168.1.1) to forward requests to, while preserving the original Host header.")
 	flag.IntVar(&httpPort, "http-port", 80, "HTTP listen port")
 	flag.IntVar(&httpsPort, "https-port", 443, "HTTPS listen port")
 	flag.Parse()
@@ -105,7 +107,7 @@ func main() {
 					errChan <- fmt.Errorf("Failed to load certificate: %v", err)
 					return
 				}
-				tlsConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+			tlsConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
 			}
 
 			server := &http.Server{
@@ -121,6 +123,9 @@ func main() {
 
 	if proxyAddress != "" {
 		log.Printf("Upstream Proxy: %s", proxyAddress)
+	}
+	if fixedUpstream != "" {
+		log.Printf("Fixed Upstream: %s (Host header will be preserved)", fixedUpstream)
 	}
 
 	// Wait for error (or block forever if no error)
@@ -190,10 +195,11 @@ func generateTLSConfig() (*tls.Config, error) {
 	}
 
 	template := x509.Certificate{
-		SerialNumber: big.NewInt(1),
+		SerialNumber: big.NewInt(time.Now().UnixNano()),
 		Subject: pkix.Name{
 			CommonName: "*.reserver.proxy",
 		},
+		DNSNames: []string{"*.reserver.proxy", "reserver.proxy"},
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(365 * 24 * time.Hour),
 
@@ -267,9 +273,8 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine upstream host and scheme dynamically
-	upstreamHost := r.Host
-	if upstreamHost == "" {
+	originalHost := r.Host
+	if originalHost == "" {
 		http.Error(w, "Host header is missing", http.StatusBadRequest)
 		return
 	}
@@ -278,15 +283,31 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	
-	// If incoming is HTTP but user wants to access HTTPS site, they might send port 443 in Host
-	if strings.HasSuffix(upstreamHost, ":443") {
+	if strings.HasSuffix(originalHost, ":443") {
 		scheme = "https"
 	}
 
+	// Default target calculation
+	targetHost := originalHost
+	targetScheme := scheme
+
+	// Override if fixedUpstream is set
+	if fixedUpstream != "" {
+		u, err := url.Parse(fixedUpstream)
+		if err == nil {
+			if u.Scheme != "" {
+				targetScheme = u.Scheme
+			}
+			targetHost = u.Host
+		} else {
+			// Fallback: assume user provided host:port or just host. Use original scheme.
+			targetHost = fixedUpstream
+		}
+	}
+
 	targetURL := &url.URL{
-		Scheme:   scheme,
-		Host:     upstreamHost,
+		Scheme:   targetScheme,
+		Host:     targetHost,
 		Path:     r.URL.Path,
 		RawQuery: r.URL.RawQuery,
 	}
@@ -304,12 +325,8 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// If no Host header in original request (unlikely if we got here), set it
-	if proxyReq.Header.Get("Host") == "" {
-		proxyReq.Host = upstreamHost
-	} else {
-		proxyReq.Host = proxyReq.Header.Get("Host")
-	}
+	// Explicitly set the Host header to the original host
+	proxyReq.Host = originalHost
 
 	if clientIP, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		if prior := proxyReq.Header.Get("X-Forwarded-For"); prior != "" {
@@ -372,8 +389,8 @@ func (h *ProxyHandler) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer clientConn.Close()
 
-	upstreamHost := r.Host
-	if upstreamHost == "" {
+	originalHost := r.Host
+	if originalHost == "" {
 		log.Printf("WebSocket missing Host header")
 		clientConn.Write([]byte("HTTP/1.1 400 Bad Request\r\n\r\n"))
 		return
@@ -383,11 +400,29 @@ func (h *ProxyHandler) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	if r.TLS != nil {
 		scheme = "wss"
 	}
-	if strings.HasSuffix(upstreamHost, ":443") {
+	if strings.HasSuffix(originalHost, ":443") {
 		scheme = "wss"
 	}
 
-	upstreamConn, err := h.dialUpstream(scheme, upstreamHost)
+	// Calculate upstream connection target
+	connectHost := originalHost
+	sniHost := originalHost // SNI usually matches the Host header
+
+	if fixedUpstream != "" {
+		u, err := url.Parse(fixedUpstream)
+		if err == nil {
+			if u.Scheme == "https" || u.Scheme == "wss" {
+				scheme = "wss"
+			} else if u.Scheme == "http" || u.Scheme == "ws" {
+				scheme = "ws"
+			}
+			connectHost = u.Host
+		} else {
+			connectHost = fixedUpstream
+		}
+	}
+
+	upstreamConn, err := h.dialUpstream(scheme, connectHost, sniHost)
 	if err != nil {
 		log.Printf("WebSocket dial upstream failed: %v", err)
 		clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
@@ -405,12 +440,13 @@ func (h *ProxyHandler) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if r.Host != "" {
-		upgradeReq += fmt.Sprintf("Host: %s\r\n", r.Host)
+	// Host header sent to upstream MUST be the original host
+	if originalHost != "" {
+		upgradeReq += fmt.Sprintf("Host: %s\r\n", originalHost)
 	}
 	upgradeReq += "\r\n"
 
-	log.Printf("Sending WebSocket upgrade to upstream: Host=%s", r.Host)
+	log.Printf("Sending WebSocket upgrade to upstream: Host=%s (Physically connecting to: %s)", originalHost, connectHost)
 
 	if _, err := upstreamConn.Write([]byte(upgradeReq)); err != nil {
 		log.Printf("WebSocket send upgrade failed: %v", err)
@@ -458,14 +494,14 @@ func (h *ProxyHandler) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *ProxyHandler) dialUpstream(scheme, upstreamHost string) (net.Conn, error) {
+func (h *ProxyHandler) dialUpstream(scheme, connectHost, sniHost string) (net.Conn, error) {
 	// 1. Use Configured Proxy (CLI)
 	if h.proxyURL != nil {
-		conn, err := h.dialThroughHTTPProxy(h.proxyURL, upstreamHost)
+		conn, err := h.dialThroughHTTPProxy(h.proxyURL, connectHost)
 		if err != nil {
 			return nil, err
 		}
-		return h.wrapTLSIfNeeded(conn, scheme, upstreamHost)
+		return h.wrapTLSIfNeeded(conn, scheme, connectHost, sniHost)
 	}
 
 	// 2. Use SOCKS Proxy (Env)
@@ -475,11 +511,11 @@ func (h *ProxyHandler) dialUpstream(scheme, upstreamHost string) (net.Conn, erro
 		if err != nil {
 			return nil, fmt.Errorf("create SOCKS dialer failed: %v", err)
 		}
-		conn, err := dialer.dialer.Dial("tcp", upstreamHost)
+		conn, err := dialer.dialer.Dial("tcp", connectHost)
 		if err != nil {
 			return nil, err
 		}
-		return h.wrapTLSIfNeeded(conn, scheme, upstreamHost)
+		return h.wrapTLSIfNeeded(conn, scheme, connectHost, sniHost)
 	}
 
 	// 3. Use HTTP/HTTPS Proxy (Env)
@@ -494,36 +530,29 @@ func (h *ProxyHandler) dialUpstream(scheme, upstreamHost string) (net.Conn, erro
 		if proxyURLStr != "" {
 			proxyURL, err := url.Parse(proxyURLStr)
 			if err == nil {
-				conn, err := h.dialThroughHTTPProxy(proxyURL, upstreamHost)
+				conn, err := h.dialThroughHTTPProxy(proxyURL, connectHost)
 				if err != nil {
 					return nil, err
 				}
-				return h.wrapTLSIfNeeded(conn, scheme, upstreamHost)
+				return h.wrapTLSIfNeeded(conn, scheme, connectHost, sniHost)
 			}
 		}
 	}
 
 	// 4. Direct
-	conn, err := net.DialTimeout("tcp", upstreamHost, 10*time.Second)
+	conn, err := net.DialTimeout("tcp", connectHost, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
-	return h.wrapTLSIfNeeded(conn, scheme, upstreamHost)
+	return h.wrapTLSIfNeeded(conn, scheme, connectHost, sniHost)
 }
 
-func (h *ProxyHandler) wrapTLSIfNeeded(conn net.Conn, scheme, upstreamHost string) (net.Conn, error) {
-	if scheme == "wss" || scheme == "https" { // Allow https here too if used for plain TCP tunnel later, but currently dialUpstream is used for Websocket.
-		// Wait, dialUpstream is mainly for WebSocket.
-		// For regular HTTP, we use h.httpClient.
-		// So scheme "wss" is the main one.
-		// However, if we ever needed manual dial for HTTPS, we'd need it.
-		// Let's keep "wss".
-		
-		// Wait, if upstreamHost contains :443, we probably want TLS anyway.
-		// But let's stick to scheme for now.
+func (h *ProxyHandler) wrapTLSIfNeeded(conn net.Conn, scheme, connectHost, sniHost string) (net.Conn, error) {
+	if scheme == "wss" || scheme == "https" {
+		// Use sniHost for ServerName to ensure correct certificate from upstream
 		tlsConn := tls.Client(conn, &tls.Config{
 			InsecureSkipVerify: true,
-			ServerName:         strings.Split(upstreamHost, ":")[0],
+			ServerName:         strings.Split(sniHost, ":")[0],
 		})
 		if err := tlsConn.Handshake(); err != nil {
 			conn.Close()

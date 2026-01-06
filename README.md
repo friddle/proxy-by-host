@@ -72,6 +72,7 @@ Now, when you visit `http://www.google.com` or `https://www.google.com`, the req
 | `--ssl-crt` | - | Path to SSL certificate file (required if `--ssl=on`). |
 | `--ssl-key` | - | Path to SSL key file (required if `--ssl=on`). |
 | `--proxy` | - | Upstream proxy URL (e.g., `http://127.0.0.1:7897` or `socks5://...`). |
+| `--fixed-upstream` | - | Force all traffic to this upstream address (e.g., `https://192.168.1.100`), preserving the original `Host` header. Useful for testing staging servers or specific IPs. |
 | `--http-port`| `80` | Port to listen for HTTP traffic. |
 | `--https-port`| `443` | Port to listen for HTTPS traffic. |
 
