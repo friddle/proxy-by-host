@@ -6,7 +6,7 @@ all: build
 # 编译
 build:
 	mkdir -p output
-	go build -o output/reserver-proxy main.go
+	go build -o output/http-proxy-by-host main.go
 
 # 运行
 run:
@@ -18,7 +18,7 @@ clean:
 
 # 构建 Docker 镜像
 docker-build:
-	docker build -t reserver-proxy:latest .
+	docker build -t http-proxy-by-host:latest .
 
 # 运行 Docker 容器
 docker-run:
@@ -35,15 +35,15 @@ logs:
 # 跨平台编译
 build-all:
 	mkdir -p output
-	GOOS=linux GOARCH=amd64 go build -o output/reserver-proxy-linux-amd64 main.go
-	GOOS=linux GOARCH=arm64 go build -o output/reserver-proxy-linux-arm64 main.go
-	GOOS=darwin GOARCH=amd64 go build -o output/reserver-proxy-darwin-amd64 main.go
-	GOOS=darwin GOARCH=arm64 go build -o output/reserver-proxy-darwin-arm64 main.go
-	GOOS=windows GOARCH=amd64 go build -o output/reserver-proxy-windows-amd64.exe main.go
+	GOOS=linux GOARCH=amd64 go build -o output/http-proxy-by-host-linux-amd64 main.go
+	GOOS=linux GOARCH=arm64 go build -o output/http-proxy-by-host-linux-arm64 main.go
+	GOOS=darwin GOARCH=amd64 go build -o output/http-proxy-by-host-darwin-amd64 main.go
+	GOOS=darwin GOARCH=arm64 go build -o output/http-proxy-by-host-darwin-arm64 main.go
+	GOOS=windows GOARCH=amd64 go build -o output/http-proxy-by-host-windows-amd64.exe main.go
 
 # 测试
 test:
-	./output/reserver-proxy --ssl=generate --http-port=8080 --https-port=8443
+	./output/http-proxy-by-host --ssl=generate --http-port=8080 --https-port=8443
 
 
 

@@ -44,13 +44,13 @@ jobs:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
       run: |
-        go build -v -o reserver-proxy-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} .
+        go build -v -o http-proxy-by-host-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} .
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: reserver-proxy-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: reserver-proxy-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+        name: http-proxy-by-host-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: http-proxy-by-host-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
 
   release:
     needs: build

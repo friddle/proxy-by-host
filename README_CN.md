@@ -1,4 +1,4 @@
-# Reserver HTTPS Proxy (中文文档)
+# HttpProxyByHost (中文文档)
 
 这是一个轻量级、安全的正向代理工具，旨在帮助团队通过简单修改本地 DNS/Hosts 即可访问受限的上游资源（例如通过 VPN 或上游代理访问）。
 
@@ -6,7 +6,7 @@
 
 将此工具部署在已连接 VPN 或拥有特殊网络访问权限的服务器上。普通用户无需在自己的电脑上安装 VPN 客户端或配置复杂的代理设置，只需将特定域名（如 `google.com`）的 DNS 解析指向该服务器 IP。
 
-当用户访问这些域名时，请求会发送到该服务器，由 `reserver-proxy` 接收并通过配置的上游代理转发到真实目标地址。
+当用户访问这些域名时，请求会发送到该服务器，由 `http-proxy-by-host` 接收并通过配置的上游代理转发到真实目标地址。
 
 **主要特点：**
 *   **零配置客户端：** 用户仅需修改 Hosts 文件。
@@ -18,10 +18,10 @@
 
 ### 1. 安装
 
-从 [Releases](https://github.com/friddle/reserver-https-proxy/releases) 下载二进制文件，或自行编译：
+从 [Releases](https://github.com/friddle/http-proxy-by-host/releases) 下载二进制文件，或自行编译：
 
 ```bash
-go build -o reserver-proxy
+go build -o http-proxy-by-host
 ```
 
 ### 2. 使用方法
@@ -29,20 +29,20 @@ go build -o reserver-proxy
 **基础用法 (默认端口 80/443):**
 
 ```bash
-sudo ./reserver-proxy --ssl=generate
+sudo ./http-proxy-by-host --ssl=generate
 ```
 
 **配合上游代理 (翻墙模式):**
 假设服务器上运行着一个代理客户端（如 Clash/V2Ray），监听在 7897 端口。
 
 ```bash
-sudo ./reserver-proxy --ssl=generate --proxy=http://127.0.0.1:7897
+sudo ./http-proxy-by-host --ssl=generate --proxy=http://127.0.0.1:7897
 ```
 
 **自定义端口和证书:**
 
 ```bash
-sudo ./reserver-proxy \
+sudo ./http-proxy-by-host \
   --http-port=8080 \
   --https-port=8443 \
   --ssl=on \
@@ -55,7 +55,7 @@ sudo ./reserver-proxy \
 在用户电脑上，编辑 Hosts 文件 (`/etc/hosts` 或 Windows 的 `System32\drivers\etc\hosts`)：
 
 ```text
-# 将目标域名指向运行 reserver-proxy 的服务器 IP
+# 将目标域名指向运行 http-proxy-by-host 的服务器 IP
 192.168.1.100 www.google.com
 192.168.1.100 google.com
 ```

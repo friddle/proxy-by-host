@@ -1,4 +1,4 @@
-module simple_proxy
+module github.com/friddle/http-proxy-by-host
 
 go 1.21
 

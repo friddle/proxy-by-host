@@ -1,4 +1,4 @@
-# Reserver HTTPS Proxy
+# HttpProxyByHost
 
 A lightweight, secure forward proxy designed for distributed teams to access restricted upstream resources (e.g., via a VPN or upstream proxy) simply by modifying local DNS/Hosts configurations.
 
@@ -19,10 +19,10 @@ Deploy this tool on a server that has access to restricted content (e.g., a serv
 
 ### 1. Installation
 
-Download the binary from the [Releases](https://github.com/friddle/reserver-https-proxy/releases) page or build it yourself:
+Download the binary from the [Releases](https://github.com/friddle/http-proxy-by-host/releases) page or build it yourself:
 
 ```bash
-go build -o reserver-proxy
+go build -o http-proxy-by-host
 ```
 
 ### 2. Usage
@@ -31,20 +31,20 @@ go build -o reserver-proxy
 Listens on ports 80 and 443.
 
 ```bash
-sudo ./reserver-proxy --ssl=generate
+sudo ./http-proxy-by-host --ssl=generate
 ```
 
 **With Upstream Proxy:**
 Forward all traffic through a local SOCKS5 or HTTP proxy (e.g., a VPN client running on port 7897).
 
 ```bash
-sudo ./reserver-proxy --ssl=generate --proxy=http://127.0.0.1:7897
+sudo ./http-proxy-by-host --ssl=generate --proxy=http://127.0.0.1:7897
 ```
 
 **Custom Ports & Certificates:**
 
 ```bash
-sudo ./reserver-proxy \
+sudo ./http-proxy-by-host \
   --http-port=8080 \
   --https-port=8443 \
   --ssl=on \
